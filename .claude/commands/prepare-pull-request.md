@@ -4,7 +4,15 @@ This workflow prepares a new release by analyzing commits, updating version numb
 
 ## Step 1 – Determine current version
 
-Note the current version from `VERSION.txt` in `current_version`.
+Note the current version from `ProPresenter-Setup-Assistant.command` in `current_version`.
+In the script there are 2 appearances of the version:
+
+```bash
+# Version: 1.0.0
+
+# Script metadata
+SCRIPT_VERSION="1.0.0"
+```
 
 ```bash
 echo "Current version: $current_version"
@@ -29,23 +37,13 @@ Analyze the commit messages from Step 2 to determine the version bump:
 - **fix:** commits → **PATCH** version bump
 - Other commit types (docs, chore, etc.) → **PATCH** version bump
 
-Calculate the new version:
-
-```bash
-# Based on analysis, determine NEW_VERSION
-# For example: if current_version=1.2.3 and there are feat commits:
-# NEW_VERSION=1.3.0
-```
+Based on analysis, determine `NEW_VERSION`.
+For example: if current_version=1.2.3 and there are feat commits:
+NEW_VERSION=1.3.0
 
 ## Step 4 – Update version numbers
 
-Update both `package.json` and `package-lock.json` with the new version:
-
-```bash
-npm version $NEW_VERSION --no-git-tag-version
-```
-
-This command updates both files automatically.
+Update the version numbers in the `.command` script with the new version.
 
 ## Step 5 – Locate release planning documentation
 
