@@ -243,6 +243,10 @@ main() {
         cleanup_and_exit 1
     fi
     
+    # Check for updates before starting main process
+    # Note: Update checking will work once repository is public and has releases
+    initialize_update_check "$@"
+    
     # Show welcome screen and get user confirmation
     show_welcome_screen
     
@@ -260,6 +264,9 @@ main() {
     # Success completion
     cleanup_and_exit 0
 }
+
+# Source self-update module
+source "${SCRIPT_DIR}/lib/self-update.sh"
 
 # Script entry point
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
