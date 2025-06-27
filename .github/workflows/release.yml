@@ -1,31 +1,65 @@
-name: Create Release
+name: Release Workflow
 
 on:
   push:
-    tags:
-      - 'v*.*.*'  # Trigger on semantic version tags (e.g., v1.0.0, v1.2.3)
+    branches:
+      - main
 
 jobs:
-  validate:
-    name: Validate Release
+  release:
     runs-on: ubuntu-latest
-    
     steps:
-      - name: Checkout code
+      - name: Checkout
         uses: actions/checkout@v4
-        
-      - name: Validate version tag format
+        with:
+          fetch-depth: 0
+
+      - name: Get version from VERSION file
+        id: version
         run: |
-          if [[ ! "${{ github.ref_name }}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            echo "❌ Invalid version tag format: ${{ github.ref_name }}"
-            echo "Expected format: v*.*.* (e.g., v1.0.0)"
+          if [ -f "VERSION" ]; then
+            VERSION=$(cat VERSION | tr -d '\n' | tr -d ' ')
+            echo "version=$VERSION" >> $GITHUB_OUTPUT
+            echo "tag=v$VERSION" >> $GITHUB_OUTPUT
+            echo "Current version: $VERSION"
+          else
+            echo "VERSION file not found"
             exit 1
           fi
-          echo "✅ Valid version tag: ${{ github.ref_name }}"
-          
-      - name: Validate script syntax
+
+      - name: Check if release documentation exists
+        id: check_docs
         run: |
-          echo "🔍 Validating script syntax..."
+          RELEASE_DOC="docs/releases/v${{ steps.version.outputs.version }}.md"
+          if [ -f "$RELEASE_DOC" ]; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+            echo "Release documentation found: $RELEASE_DOC"
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+            echo "Release documentation not found: $RELEASE_DOC"
+          fi
+
+      - name: Check if release already exists
+        id: check_release
+        if: steps.check_docs.outputs.exists == 'true'
+        run: |
+          TAG="${{ steps.version.outputs.tag }}"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+            echo "Release $TAG already exists, skipping..."
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+            echo "Release $TAG does not exist, proceeding..."
+          fi
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Validate script and environment
+        if: steps.check_docs.outputs.exists == 'true' && steps.check_release.outputs.exists == 'false'
+        run: |
+          echo "🔍 Validating script and environment..."
+          
+          # Validate script syntax
           if bash -n ProPresenter-Setup-Assistant.command; then
             echo "✅ Script syntax validation passed"
           else
@@ -33,9 +67,7 @@ jobs:
             exit 1
           fi
           
-      - name: Check script permissions
-        run: |
-          echo "🔍 Checking script permissions..."
+          # Check script permissions
           if [[ -x "ProPresenter-Setup-Assistant.command" ]]; then
             echo "✅ Script has executable permissions"
           else
@@ -43,9 +75,7 @@ jobs:
             exit 1
           fi
           
-      - name: Verify environment configuration
-        run: |
-          echo "🔍 Verifying environment configuration..."
+          # Verify environment configuration
           if [[ -f "docs/app-design/environment.md" ]]; then
             echo "✅ Environment configuration file exists"
             # Test key configuration values
@@ -62,89 +92,64 @@ jobs:
             exit 1
           fi
 
-  create-release:
-    name: Create GitHub Release
-    runs-on: ubuntu-latest
-    needs: validate
-    permissions:
-      contents: write
-    
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0  # Fetch full history for release notes
-          
-      - name: Extract version from tag
-        id: version
+      - name: Extract release notes
+        id: extract_notes
+        if: steps.check_docs.outputs.exists == 'true' && steps.check_release.outputs.exists == 'false'
         run: |
-          VERSION=${{ github.ref_name }}
-          VERSION_NUMBER=${VERSION#v}  # Remove 'v' prefix
-          echo "version=${VERSION}" >> $GITHUB_OUTPUT
-          echo "version_number=${VERSION_NUMBER}" >> $GITHUB_OUTPUT
-          echo "📦 Version: ${VERSION} (${VERSION_NUMBER})"
-          
-      - name: Generate release notes
-        id: release_notes
-        run: |
-          echo "📝 Generating release notes..."
-          
-          # Get the previous tag for comparison
-          PREV_TAG=$(git tag --sort=-version:refname | grep -v "${{ github.ref_name }}" | head -n1)
-          
-          # Create release notes content
-          cat > release_notes.md << 'EOF'
-          # ProPresenter OneDrive Setup Assistant ${{ steps.version.outputs.version }}
-          
-          ## 📋 What's Included
-          
-          This release contains the ProPresenter OneDrive Setup Assistant with the following components:
-          
-          - **Main Script**: `ProPresenter-Setup-Assistant.command` - Double-clickable macOS script
-          - **Documentation**: Complete setup and usage instructions
-          - **Environment Configuration**: Pre-configured for Mosaik Church Berlin
-          
-          ## 🚀 Installation
-          
-          1. Download the `propresenter-setup-assistant-${{ steps.version.outputs.version }}.zip` file
-          2. Extract the ZIP file to your desired location
-          3. Double-click `ProPresenter-Setup-Assistant.command` to run
-          
-          ## 📋 Requirements
-          
-          - macOS 13.0 or later
-          - Administrator privileges
-          - Microsoft 365 account with Mosaik Church Berlin access
-          - Active internet connection
-          
-          ## 🔧 Features
-          
-          EOF
-          
-          if [[ -n "$PREV_TAG" ]]; then
-            echo "## 📈 Changes Since ${PREV_TAG}" >> release_notes.md
-            echo "" >> release_notes.md
-            git log --pretty=format:"- %s" ${PREV_TAG}..${{ github.ref_name }} >> release_notes.md
-            echo "" >> release_notes.md
+          RELEASE_DOC="docs/releases/v${{ steps.version.outputs.version }}.md"
+          VERSION="${{ steps.version.outputs.version }}"
+          TAG="${{ steps.version.outputs.tag }}"
+
+          # Get current date in YYYY-MM-DD format
+          CURRENT_DATE=$(date +%Y-%m-%d)
+
+          # Find previous tag for compare link
+          PREVIOUS_TAG=$(git tag --sort=version:refname | grep -v "^$TAG$" | tail -1)
+          if [ -z "$PREVIOUS_TAG" ]; then
+            # If no previous tag found, use first commit
+            PREVIOUS_TAG=$(git rev-list --max-parents=0 HEAD)
+            COMPARE_LINK="https://github.com/mosaikberlin/propresenter-setup-assistant/commits/$TAG"
+          else
+            COMPARE_LINK="https://github.com/mosaikberlin/propresenter-setup-assistant/compare/$PREVIOUS_TAG...$TAG"
           fi
-          
-          cat >> release_notes.md << 'EOF'
-          
-          ## 🆘 Support
-          
-          If you encounter any issues:
-          1. Check the log file in the `logs/` directory
-          2. Review the documentation in the `docs/` folder
-          3. Contact the Mosaik Church Berlin technical team
-          
-          ---
-          
-          🤖 *This release was automatically generated by GitHub Actions*
-          EOF
-          
-          echo "release_notes_file=release_notes.md" >> $GITHUB_OUTPUT
-          
+
+          # Extract Major Changes section
+          MAJOR_CHANGES=$(awk '
+            /^## Major Changes/ { found=1; next }
+            /^## / && found { exit }
+            found && NF { print }
+          ' "$RELEASE_DOC" | sed '/^$/d')
+
+          # Extract Fixes section
+          FIXES=$(awk '
+            /^## Fixes/ { found=1; next }
+            /^## / && found { exit }
+            found && NF { print }
+          ' "$RELEASE_DOC" | sed '/^$/d')
+
+          # Create release notes with new format
+          RELEASE_NOTES="## [$VERSION]($COMPARE_LINK) ($CURRENT_DATE)"
+
+          if [ -n "$MAJOR_CHANGES" ]; then
+            RELEASE_NOTES="$RELEASE_NOTES"$'\n\n'"### Major Changes"$'\n\n'"$MAJOR_CHANGES"
+          fi
+
+          if [ -n "$FIXES" ]; then
+            RELEASE_NOTES="$RELEASE_NOTES"$'\n\n'"### Fixes"$'\n\n'"$FIXES"
+          fi
+
+          if [ -z "$MAJOR_CHANGES" ] && [ -z "$FIXES" ]; then
+            echo "No Major Changes or Fixes sections found in release documentation"
+            exit 1
+          fi
+
+          # Save to file for multiline output
+          echo "$RELEASE_NOTES" > release_notes.txt
+          echo "Release notes extracted successfully"
+          echo "Compare link: $COMPARE_LINK"
+
       - name: Create release package
+        if: steps.check_docs.outputs.exists == 'true' && steps.check_release.outputs.exists == 'false'
         run: |
           echo "📦 Creating release package..."
           
@@ -154,28 +159,39 @@ jobs:
           # Copy main script
           cp ProPresenter-Setup-Assistant.command release-package/
           
-          # Copy supporting directories
-          cp -r lib/ release-package/lib/
-          cp -r docs/ release-package/docs/
+          # Copy supporting directories if they exist
+          if [ -d "lib" ] && [ "$(ls -A lib)" ]; then
+            cp -r lib/ release-package/lib/
+          else
+            echo "ℹ️ lib/ directory is empty or doesn't exist, skipping"
+          fi
           
-          # Copy essential files
-          cp LICENSE release-package/ 2>/dev/null || echo "No LICENSE file found"
-          cp README.md release-package/ 2>/dev/null || echo "No README file found"
+          if [ -d "docs" ]; then
+            cp -r docs/ release-package/docs/
+          fi
+          
+          # Copy VERSION file
+          cp VERSION release-package/
+          
+          # Copy essential files if they exist
+          [ -f "LICENSE" ] && cp LICENSE release-package/
+          [ -f "README.md" ] && cp README.md release-package/
           
           # Create ZIP package
           cd release-package
-          zip -r "../propresenter-setup-assistant-${{ steps.version.outputs.version }}.zip" .
+          zip -r "../propresenter-setup-assistant-v${{ steps.version.outputs.version }}.zip" .
           cd ..
           
           # Verify package contents
           echo "📋 Package contents:"
-          unzip -l "propresenter-setup-assistant-${{ steps.version.outputs.version }}.zip"
+          unzip -l "propresenter-setup-assistant-v${{ steps.version.outputs.version }}.zip"
           
           # Verify package size
-          PACKAGE_SIZE=$(stat -f%z "propresenter-setup-assistant-${{ steps.version.outputs.version }}.zip" 2>/dev/null || stat -c%s "propresenter-setup-assistant-${{ steps.version.outputs.version }}.zip")
+          PACKAGE_SIZE=$(stat -c%s "propresenter-setup-assistant-v${{ steps.version.outputs.version }}.zip" 2>/dev/null || stat -f%z "propresenter-setup-assistant-v${{ steps.version.outputs.version }}.zip")
           echo "📏 Package size: ${PACKAGE_SIZE} bytes"
-          
+
       - name: Test package extraction
+        if: steps.check_docs.outputs.exists == 'true' && steps.check_release.outputs.exists == 'false'
         run: |
           echo "🧪 Testing package extraction..."
           
@@ -184,7 +200,7 @@ jobs:
           cd test-extraction
           
           # Extract package
-          unzip "../propresenter-setup-assistant-${{ steps.version.outputs.version }}.zip"
+          unzip "../propresenter-setup-assistant-v${{ steps.version.outputs.version }}.zip"
           
           # Test script execution (syntax only)
           if bash -n ProPresenter-Setup-Assistant.command; then
@@ -202,33 +218,50 @@ jobs:
             exit 1
           fi
           
+          # Verify VERSION file works
+          if [[ -f "VERSION" ]]; then
+            VERSION_CONTENT=$(cat VERSION)
+            echo "✅ VERSION file extracted: $VERSION_CONTENT"
+          else
+            echo "❌ VERSION file missing from package"
+            exit 1
+          fi
+          
           cd ..
-          
-      - name: Create GitHub Release
-        uses: actions/create-release@v1
-        id: create_release
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tag_name: ${{ github.ref_name }}
-          release_name: "ProPresenter Setup Assistant ${{ steps.version.outputs.version }}"
-          body_path: ${{ steps.release_notes.outputs.release_notes_file }}
-          draft: false
-          prerelease: false
-          
-      - name: Upload Release Asset
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./propresenter-setup-assistant-${{ steps.version.outputs.version }}.zip
-          asset_name: propresenter-setup-assistant-${{ steps.version.outputs.version }}.zip
-          asset_content_type: application/zip
-          
-      - name: Verify Release Creation
+
+      - name: Create git tag
+        if: steps.check_docs.outputs.exists == 'true' && steps.check_release.outputs.exists == 'false'
         run: |
-          echo "🎉 Release created successfully!"
-          echo "📦 Release: ${{ steps.create_release.outputs.html_url }}"
-          echo "💾 Asset: propresenter-setup-assistant-${{ steps.version.outputs.version }}.zip"
-          echo "🔗 Download URL: ${{ steps.create_release.outputs.upload_url }}"
+          TAG="${{ steps.version.outputs.tag }}"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          if git tag -l | grep -q "^$TAG$"; then
+            echo "Tag $TAG already exists locally"
+          else
+            git tag -a "$TAG" -m "Release $TAG"
+            git push origin "$TAG"
+            echo "Created and pushed tag: $TAG"
+          fi
+
+      - name: Create GitHub Release
+        if: steps.check_docs.outputs.exists == 'true' && steps.check_release.outputs.exists == 'false'
+        run: |
+          TAG="${{ steps.version.outputs.tag }}"
+          gh release create "$TAG" \
+            --title "ProPresenter Setup Assistant $TAG" \
+            --notes-file release_notes.txt \
+            "propresenter-setup-assistant-v${{ steps.version.outputs.version }}.zip#ProPresenter Setup Assistant v${{ steps.version.outputs.version }}"
+          echo "✅ Created GitHub release: $TAG"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Skip release (no documentation)
+        if: steps.check_docs.outputs.exists == 'false'
+        run: |
+          echo "ℹ️ Skipping release creation - no release documentation found for version ${{ steps.version.outputs.version }}"
+
+      - name: Skip release (already exists)
+        if: steps.check_docs.outputs.exists == 'true' && steps.check_release.outputs.exists == 'true'
+        run: |
+          echo "ℹ️ Skipping release creation - release ${{ steps.version.outputs.tag }} already exists"

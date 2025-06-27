@@ -4,15 +4,23 @@ This document describes the automated release process for the ProPresenter OneDr
 
 ## Overview
 
-The project uses GitHub Actions to automatically create releases when version tags are pushed to the repository. This ensures consistent, tested releases with proper packaging and documentation.
+The project uses GitHub Actions to automatically create releases when changes are pushed to the main branch. The workflow is **documentation-driven** and **version-file-based**, ensuring consistent, tested releases with proper packaging.
 
 ## Release Workflow
 
 ### Automatic Triggers
 
 Releases are automatically created when:
-- A git tag matching the pattern `v*.*.*` is pushed to the repository
-- Example: `v1.0.0`, `v1.2.3`, `v2.1.0`
+- Changes are pushed to the `main` branch
+- A `VERSION` file exists with a valid version number
+- Release documentation exists at `docs/releases/v{version}.md`
+- No existing release exists for that version
+
+### Version Management
+
+- **Single Source of Truth**: Version is stored in the `VERSION` file in the repository root
+- **Script Integration**: The main script reads its version from this file dynamically
+- **No Manual Tagging**: The workflow creates git tags automatically
 
 ### Workflow Steps
 
@@ -42,40 +50,44 @@ Releases are automatically created when:
 
 ## Creating a Release
 
-### Step 1: Prepare the Release
+### Step 1: Update Version Number
 
-1. Ensure all changes are committed and merged to the main branch
-2. Update version number in the script if needed:
+1. Update the version in the `VERSION` file:
    ```bash
-   # In ProPresenter-Setup-Assistant.command
-   SCRIPT_VERSION="1.0.0"  # Update this version
+   echo "1.2.0" > VERSION
    ```
-3. Test the script locally to ensure it works correctly
 
-### Step 2: Create and Push Version Tag
+### Step 2: Create Release Documentation
 
-```bash
-# Create annotated tag with release notes
-git tag -a v1.0.0 -m "Release v1.0.0: Core infrastructure and GitHub release automation"
+1. Create release documentation at `docs/releases/v{version}.md`:
+   ```bash
+   # Example: docs/releases/v1.2.0.md
+   ```
+2. Follow the release template format with "Major Changes" and "Fixes" sections
+3. Document all new features, fixes, and technical details
 
-# Push the tag to trigger the workflow
-git push origin v1.0.0
-```
+### Step 3: Commit and Push to Main
 
-### Step 3: Monitor Workflow
+1. Commit all changes including VERSION file and release documentation
+2. Push to main branch (or merge PR to main):
+   ```bash
+   git add VERSION docs/releases/v1.2.0.md
+   git commit -m "Release v1.2.0: Brief description"
+   git push origin main
+   ```
 
-1. Go to the "Actions" tab in the GitHub repository
-2. Watch the "Create Release" workflow execution
-3. Verify all steps complete successfully
+### Step 4: Automatic Release Creation
 
-### Step 4: Verify Release
+1. GitHub Actions workflow automatically triggers on push to main
+2. Workflow validates the script, environment, and documentation
+3. Creates ZIP package and GitHub release with tag
+4. No manual intervention required
 
-1. Check the "Releases" section of the GitHub repository
-2. Confirm the release appears with:
-   - Correct version number and title
-   - Generated release notes
-   - ZIP asset attachment
-3. Test downloading and extracting the ZIP file
+### Step 5: Monitor and Verify
+
+1. Check the "Actions" tab to monitor workflow progress
+2. Verify release appears in "Releases" section
+3. Download and test the ZIP package
 
 ## Version Numbering
 
