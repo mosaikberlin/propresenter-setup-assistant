@@ -4,15 +4,7 @@ This workflow prepares a new release by analyzing commits, updating version numb
 
 ## Step 1 – Determine current version
 
-Note the current version from `ProPresenter-Setup-Assistant.command` in `current_version`.
-In the script there are 2 appearances of the version:
-
-```bash
-# Version: 1.0.0
-
-# Script metadata
-SCRIPT_VERSION="1.0.0"
-```
+Note the current version from `./VERSION` in `current_version`.
 
 ```bash
 echo "Current version: $current_version"
@@ -43,7 +35,7 @@ NEW_VERSION=1.3.0
 
 ## Step 4 – Update version numbers
 
-Update the version numbers in the `.command` script with the new version.
+Update the version numbers in the `./VERSION` script with the new version.
 
 ## Step 5 – Locate release planning documentation
 
@@ -115,7 +107,7 @@ Display a summary of changes:
 <ask_followup_question>
 <question>Review the changes above for release v$NEW_VERSION. The following will be included:
 
-- Updated package.json and package-lock.json to v$NEW_VERSION
+- Updated ./VERSION to v$NEW_VERSION
 - Created docs/releases/v$NEW_VERSION.md with release documentation
 - Updated tech stack documentation (if applicable)
 - Removed release planning folder: $RELEASE_FOLDER
