@@ -1,11 +1,11 @@
 #!/bin/bash
 
 # ProPresenter OneDrive Setup Assistant
-# Version: 1.0.0
+# Version: 1.1.0
 # Description: Self-updating macOS script that automates ProPresenter configuration with OneDrive sync
 
 # Script metadata
-SCRIPT_VERSION="1.0.0"
+SCRIPT_VERSION="1.1.0"
 SCRIPT_NAME="ProPresenter OneDrive Setup Assistant"
 SCRIPT_AUTHOR="Mosaikkirche Berlin e.V."
 
