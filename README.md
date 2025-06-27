@@ -1,1 +1,0 @@
-# propresenter-setup-assistant
