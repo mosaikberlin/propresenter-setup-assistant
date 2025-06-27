@@ -1,6 +1,6 @@
 # ProPresenter OneDrive Setup Assistant
 
-[![Version](https://img.shields.io/badge/version-v1.1.0-blue)](https://github.com/mosaikberlin/propresenter-setup-assistant/releases/latest)
+[![Version](https://img.shields.io/badge/version-v1.2.0-blue)](https://github.com/mosaikberlin/propresenter-setup-assistant/releases/latest)
 [![macOS](https://img.shields.io/badge/platform-macOS-blue)](https://www.apple.com/macos/)
 
 A foolproof automated setup tool for configuring ProPresenter with OneDrive sync across multiple Mac computers. Designed for worship teams and presentation environments where consistent configuration is critical.
