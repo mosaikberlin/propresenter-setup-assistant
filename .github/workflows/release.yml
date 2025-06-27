@@ -1,0 +1,234 @@
+name: Create Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'  # Trigger on semantic version tags (e.g., v1.0.0, v1.2.3)
+
+jobs:
+  validate:
+    name: Validate Release
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Validate version tag format
+        run: |
+          if [[ ! "${{ github.ref_name }}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "❌ Invalid version tag format: ${{ github.ref_name }}"
+            echo "Expected format: v*.*.* (e.g., v1.0.0)"
+            exit 1
+          fi
+          echo "✅ Valid version tag: ${{ github.ref_name }}"
+          
+      - name: Validate script syntax
+        run: |
+          echo "🔍 Validating script syntax..."
+          if bash -n ProPresenter-Setup-Assistant.command; then
+            echo "✅ Script syntax validation passed"
+          else
+            echo "❌ Script syntax validation failed"
+            exit 1
+          fi
+          
+      - name: Check script permissions
+        run: |
+          echo "🔍 Checking script permissions..."
+          if [[ -x "ProPresenter-Setup-Assistant.command" ]]; then
+            echo "✅ Script has executable permissions"
+          else
+            echo "❌ Script missing executable permissions"
+            exit 1
+          fi
+          
+      - name: Verify environment configuration
+        run: |
+          echo "🔍 Verifying environment configuration..."
+          if [[ -f "docs/app-design/environment.md" ]]; then
+            echo "✅ Environment configuration file exists"
+            # Test key configuration values
+            if grep -q "Tenant ID" docs/app-design/environment.md && \
+               grep -q "Tenant Domain" docs/app-design/environment.md && \
+               grep -q "SharePoint Base URL" docs/app-design/environment.md; then
+              echo "✅ Required environment configuration found"
+            else
+              echo "❌ Missing required environment configuration"
+              exit 1
+            fi
+          else
+            echo "❌ Environment configuration file not found"
+            exit 1
+          fi
+
+  create-release:
+    name: Create GitHub Release
+    runs-on: ubuntu-latest
+    needs: validate
+    permissions:
+      contents: write
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Fetch full history for release notes
+          
+      - name: Extract version from tag
+        id: version
+        run: |
+          VERSION=${{ github.ref_name }}
+          VERSION_NUMBER=${VERSION#v}  # Remove 'v' prefix
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          echo "version_number=${VERSION_NUMBER}" >> $GITHUB_OUTPUT
+          echo "📦 Version: ${VERSION} (${VERSION_NUMBER})"
+          
+      - name: Generate release notes
+        id: release_notes
+        run: |
+          echo "📝 Generating release notes..."
+          
+          # Get the previous tag for comparison
+          PREV_TAG=$(git tag --sort=-version:refname | grep -v "${{ github.ref_name }}" | head -n1)
+          
+          # Create release notes content
+          cat > release_notes.md << 'EOF'
+          # ProPresenter OneDrive Setup Assistant ${{ steps.version.outputs.version }}
+          
+          ## 📋 What's Included
+          
+          This release contains the ProPresenter OneDrive Setup Assistant with the following components:
+          
+          - **Main Script**: `ProPresenter-Setup-Assistant.command` - Double-clickable macOS script
+          - **Documentation**: Complete setup and usage instructions
+          - **Environment Configuration**: Pre-configured for Mosaik Church Berlin
+          
+          ## 🚀 Installation
+          
+          1. Download the `propresenter-setup-assistant-${{ steps.version.outputs.version }}.zip` file
+          2. Extract the ZIP file to your desired location
+          3. Double-click `ProPresenter-Setup-Assistant.command` to run
+          
+          ## 📋 Requirements
+          
+          - macOS 13.0 or later
+          - Administrator privileges
+          - Microsoft 365 account with Mosaik Church Berlin access
+          - Active internet connection
+          
+          ## 🔧 Features
+          
+          EOF
+          
+          if [[ -n "$PREV_TAG" ]]; then
+            echo "## 📈 Changes Since ${PREV_TAG}" >> release_notes.md
+            echo "" >> release_notes.md
+            git log --pretty=format:"- %s" ${PREV_TAG}..${{ github.ref_name }} >> release_notes.md
+            echo "" >> release_notes.md
+          fi
+          
+          cat >> release_notes.md << 'EOF'
+          
+          ## 🆘 Support
+          
+          If you encounter any issues:
+          1. Check the log file in the `logs/` directory
+          2. Review the documentation in the `docs/` folder
+          3. Contact the Mosaik Church Berlin technical team
+          
+          ---
+          
+          🤖 *This release was automatically generated by GitHub Actions*
+          EOF
+          
+          echo "release_notes_file=release_notes.md" >> $GITHUB_OUTPUT
+          
+      - name: Create release package
+        run: |
+          echo "📦 Creating release package..."
+          
+          # Create a clean directory for packaging
+          mkdir -p release-package
+          
+          # Copy main script
+          cp ProPresenter-Setup-Assistant.command release-package/
+          
+          # Copy supporting directories
+          cp -r lib/ release-package/lib/
+          cp -r docs/ release-package/docs/
+          
+          # Copy essential files
+          cp LICENSE release-package/ 2>/dev/null || echo "No LICENSE file found"
+          cp README.md release-package/ 2>/dev/null || echo "No README file found"
+          
+          # Create ZIP package
+          cd release-package
+          zip -r "../propresenter-setup-assistant-${{ steps.version.outputs.version }}.zip" .
+          cd ..
+          
+          # Verify package contents
+          echo "📋 Package contents:"
+          unzip -l "propresenter-setup-assistant-${{ steps.version.outputs.version }}.zip"
+          
+          # Verify package size
+          PACKAGE_SIZE=$(stat -f%z "propresenter-setup-assistant-${{ steps.version.outputs.version }}.zip" 2>/dev/null || stat -c%s "propresenter-setup-assistant-${{ steps.version.outputs.version }}.zip")
+          echo "📏 Package size: ${PACKAGE_SIZE} bytes"
+          
+      - name: Test package extraction
+        run: |
+          echo "🧪 Testing package extraction..."
+          
+          # Create test directory
+          mkdir -p test-extraction
+          cd test-extraction
+          
+          # Extract package
+          unzip "../propresenter-setup-assistant-${{ steps.version.outputs.version }}.zip"
+          
+          # Test script execution (syntax only)
+          if bash -n ProPresenter-Setup-Assistant.command; then
+            echo "✅ Extracted script syntax validation passed"
+          else
+            echo "❌ Extracted script syntax validation failed"
+            exit 1
+          fi
+          
+          # Verify permissions
+          if [[ -x "ProPresenter-Setup-Assistant.command" ]]; then
+            echo "✅ Extracted script has executable permissions"
+          else
+            echo "❌ Extracted script missing executable permissions"
+            exit 1
+          fi
+          
+          cd ..
+          
+      - name: Create GitHub Release
+        uses: actions/create-release@v1
+        id: create_release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref_name }}
+          release_name: "ProPresenter Setup Assistant ${{ steps.version.outputs.version }}"
+          body_path: ${{ steps.release_notes.outputs.release_notes_file }}
+          draft: false
+          prerelease: false
+          
+      - name: Upload Release Asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./propresenter-setup-assistant-${{ steps.version.outputs.version }}.zip
+          asset_name: propresenter-setup-assistant-${{ steps.version.outputs.version }}.zip
+          asset_content_type: application/zip
+          
+      - name: Verify Release Creation
+        run: |
+          echo "🎉 Release created successfully!"
+          echo "📦 Release: ${{ steps.create_release.outputs.html_url }}"
+          echo "💾 Asset: propresenter-setup-assistant-${{ steps.version.outputs.version }}.zip"
+          echo "🔗 Download URL: ${{ steps.create_release.outputs.upload_url }}"

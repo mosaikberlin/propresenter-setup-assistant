@@ -34,7 +34,38 @@ Build a self-updating, double-clickable macOS script that automates ProPresenter
 
 ---
 
-### Step 2: Implement Self-Updating Architecture
+### Step 2: Set Up GitHub Release Automation
+
+**Objective**: Establish automated GitHub release creation to enable testing of the self-updating architecture.
+
+**Implementation Details**:
+
+- Create GitHub Actions workflow for automated release creation on version tags
+- Set up automatic ZIP packaging of script and supporting files
+- Implement semantic versioning validation and release notes generation
+- Configure workflow to trigger on git tags matching version pattern (v*.*.*)
+- Create release template with standardized naming and asset organization
+- Add workflow for validating script functionality before release
+- Document the release process and tagging conventions
+- Test workflow with initial v1.0.0 tag creation
+
+**Key Actions to Implement**:
+
+- Create `.github/workflows/release.yml` with automated release workflow
+- Set up ZIP packaging that includes script, lib/, docs/ directories
+- Configure automatic release notes generation from commits
+- Add workflow validation steps (syntax check, basic functionality test)
+- Create release naming convention: "ProPresenter Setup Assistant v{version}"
+- Document tagging process for triggering releases
+- Test workflow by creating v1.0.0 git tag
+
+**Environment Integration**: Use GitHub repository configuration from environment.md for workflow setup.
+
+**Verification**: GitHub Actions workflow successfully creates release with ZIP asset when git tag is pushed, and the release is accessible via GitHub Releases API.
+
+---
+
+### Step 3: Implement Self-Updating Architecture
 
 **Objective**: Build automatic version checking and update mechanism using GitHub Releases API.
 
@@ -62,7 +93,7 @@ Build a self-updating, double-clickable macOS script that automates ProPresenter
 
 ---
 
-### Step 3: Build ProPresenter Version Management Module
+### Step 4: Build ProPresenter Version Management Module
 
 **Objective**: Implement ProPresenter installation and version consistency using Homebrew.
 
@@ -91,7 +122,7 @@ Build a self-updating, double-clickable macOS script that automates ProPresenter
 
 ---
 
-### Step 4: Develop OneDrive Detection and Authentication Module
+### Step 5: Develop OneDrive Detection and Authentication Module
 
 **Objective**: Handle OneDrive installation, authentication, and tenant validation.
 
@@ -120,7 +151,7 @@ Build a self-updating, double-clickable macOS script that automates ProPresenter
 
 ---
 
-### Step 5: Create SharePoint Library Discovery and Sync Module
+### Step 6: Create SharePoint Library Discovery and Sync Module
 
 **Objective**: Implement automated SharePoint library discovery and ODOpen protocol sync.
 
@@ -149,7 +180,7 @@ Build a self-updating, double-clickable macOS script that automates ProPresenter
 
 ---
 
-### Step 6: Implement Programmatic Pin Management Module
+### Step 7: Implement Programmatic Pin Management Module
 
 **Objective**: Build "Always keep on device" functionality using OneDrive command-line tools.
 
@@ -176,7 +207,7 @@ Build a self-updating, double-clickable macOS script that automates ProPresenter
 
 ---
 
-### Step 7: Build Symlink Creation and Path Normalization Module
+### Step 8: Build Symlink Creation and Path Normalization Module
 
 **Objective**: Create standardized folder structure using symbolic links.
 
@@ -205,7 +236,7 @@ Build a self-updating, double-clickable macOS script that automates ProPresenter
 
 ---
 
-### Step 8: Develop ProPresenter Configuration Update Module
+### Step 9: Develop ProPresenter Configuration Update Module
 
 **Objective**: Programmatically update ProPresenter preferences to use symlink paths.
 
@@ -234,7 +265,7 @@ Build a self-updating, double-clickable macOS script that automates ProPresenter
 
 ---
 
-### Step 9: Implement Comprehensive Error Handling and Recovery
+### Step 10: Implement Comprehensive Error Handling and Recovery
 
 **Objective**: Add robust error handling, retry mechanisms, and recovery procedures.
 
@@ -261,7 +292,7 @@ Build a self-updating, double-clickable macOS script that automates ProPresenter
 
 ---
 
-### Step 10: Build Verification and Success Reporting Module
+### Step 11: Build Verification and Success Reporting Module
 
 **Objective**: Implement comprehensive setup validation and user success confirmation.
 
