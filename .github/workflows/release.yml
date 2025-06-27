@@ -256,6 +256,40 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Update README version badge
+        if: steps.check_docs.outputs.exists == 'true' && steps.check_release.outputs.exists == 'false'
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          TAG="${{ steps.version.outputs.tag }}"
+          
+          echo "📝 Updating README.md version badge to $TAG"
+          
+          # Update the version badge in README.md
+          sed -i.bak "s|https://img.shields.io/badge/version-v[^-]*-blue|https://img.shields.io/badge/version-$TAG-blue|g" README.md
+          
+          # Check if file was actually changed
+          if ! cmp -s README.md README.md.bak; then
+            # Configure git for automated commit
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            
+            # Commit the updated badge
+            git add README.md
+            git commit -m "docs: update version badge to $TAG
+            
+            Automatically updated by release workflow.
+            
+            🤖 Generated with [Claude Code](https://claude.ai/code)"
+            
+            git push origin main
+            echo "✅ Updated README.md version badge to $TAG"
+          else
+            echo "ℹ️ README.md version badge already up to date"
+          fi
+          
+          # Clean up backup file
+          rm -f README.md.bak
+
       - name: Skip release (no documentation)
         if: steps.check_docs.outputs.exists == 'false'
         run: |

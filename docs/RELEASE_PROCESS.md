@@ -81,7 +81,8 @@ Releases are automatically created when:
 1. GitHub Actions workflow automatically triggers on push to main
 2. Workflow validates the script, environment, and documentation
 3. Creates ZIP package and GitHub release with tag
-4. No manual intervention required
+4. **Automatically updates README.md version badge** to reflect new version
+5. No manual intervention required
 
 ### Step 5: Monitor and Verify
 
