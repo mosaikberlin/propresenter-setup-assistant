@@ -1,11 +1,15 @@
 #!/bin/bash
 
 # ProPresenter OneDrive Setup Assistant
-# Version: 1.1.0
+# Version: Read from VERSION file
 # Description: Self-updating macOS script that automates ProPresenter configuration with OneDrive sync
 
+# Global variables
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
 # Script metadata
-SCRIPT_VERSION="1.1.0"
+# Read version from VERSION file
+SCRIPT_VERSION=$(cat "${SCRIPT_DIR}/VERSION" 2>/dev/null || echo "unknown")
 SCRIPT_NAME="ProPresenter OneDrive Setup Assistant"
 SCRIPT_AUTHOR="Mosaikkirche Berlin e.V."
 
@@ -16,9 +20,6 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 CYAN='\033[0;36m'
 NC='\033[0m' # No Color
-
-# Global variables
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LOG_DIR="${SCRIPT_DIR}/logs"
 LOG_FILE="${LOG_DIR}/setup-assistant.log"
 TOTAL_STEPS=11
