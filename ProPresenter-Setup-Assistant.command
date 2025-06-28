@@ -311,11 +311,11 @@ main() {
         cleanup_and_exit 1
     fi
     
-    # Step 6: SharePoint Library Discovery and Sync
+    # Step 6: SharePoint Library Shortcut Setup
     echo ""
-    echo_step "Managing SharePoint library discovery and sync..."
+    echo_step "Setting up SharePoint library OneDrive shortcut..."
     if ! manage_sharepoint_sync; then
-        echo_error "SharePoint library discovery and sync failed"
+        echo_error "SharePoint library shortcut setup failed"
         cleanup_and_exit 1
     fi
     
