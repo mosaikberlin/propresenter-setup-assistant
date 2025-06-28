@@ -58,18 +58,3 @@ git add -A
 ```bash
 git commit -m "$COMMIT_MSG"
 ```
-
-## Step 4 – Offer to push
-
-```xml
-<ask_followup_question>
-<question>Push the commit to the current branch?</question>
-<options>["Yes, push", "No, not now"]</options>
-</ask_followup_question>
-```
-
-If the user selects **Yes, push**:
-
-```bash
-git push
-```

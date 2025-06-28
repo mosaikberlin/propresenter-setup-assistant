@@ -102,17 +102,25 @@ echo_status() {
     echo -e "${CYAN}ℹ${NC} $1"
 }
 
+echo_info() {
+    echo "$1"
+}
+
+echo_important() {
+    echo -e "${GREEN}ATTENTION:${NC} $1"
+}
+
 echo_success() {
-    echo -e "${GREEN}✅${NC} $1"
+    echo -e "✅${NC} $1"
 }
 
 echo_error() {
-    echo -e "${RED}❌${NC} $1"
+    echo -e "❌${NC} $1"
     echo "$(date): ERROR: $1" >> "${LOG_FILE}"
 }
 
 echo_warning() {
-    echo -e "${YELLOW}⚠️${NC} $1"
+    echo -e "⚠️${NC} $1"
     echo "$(date): WARNING: $1" >> "${LOG_FILE}"
 }
 
@@ -149,6 +157,15 @@ load_environment_config() {
     GITHUB_API_URL=$(grep "GitHub API URL" "$env_file" | sed 's/.*`\([^`]*\)`.*/\1/')
     PROPRESENTER_VERSION=$(grep "Target ProPresenter Version" "$env_file" | sed 's/.*`\([^`]*\)`.*/\1/')
     
+    # Parse SharePoint configuration
+    SHAREPOINT_URL=$(grep "SharePoint URL" "$env_file" | sed 's/.*`\([^`]*\)`.*/\1/')
+    SHAREPOINT_SITE_PATH_CONFIG=$(grep "Site Path" "$env_file" | sed 's/.*`\([^`]*\)`.*/\1/')
+    SHAREPOINT_LIBRARY_PATH_CONFIG=$(grep "Library Path" "$env_file" | sed 's/.*`\([^`]*\)`.*/\1/')
+    
+    # Export variables for use by modules
+    export TENANT_ID TENANT_DOMAIN SHAREPOINT_BASE_URL GITHUB_REPO GITHUB_API_URL PROPRESENTER_VERSION
+    export SHAREPOINT_URL SHAREPOINT_SITE_PATH_CONFIG SHAREPOINT_LIBRARY_PATH_CONFIG
+    
     # Validate required configuration
     if [[ -z "$TENANT_ID" || -z "$TENANT_DOMAIN" || -z "$SHAREPOINT_BASE_URL" ]]; then
         echo_error "Missing required environment configuration"
@@ -174,9 +191,37 @@ show_confirmation_dialog() {
     fi
 }
 
+# Step-specific dialog with step numbering
+show_step_dialog() {
+    local step_number="$1"
+    local step_title="$2"
+    local message="$3"
+    local dialog_title="Step $step_number: $step_title"
+    
+    local result
+    result=$(osascript -e "display dialog \"$message\" with title \"$dialog_title\" buttons {\"Cancel\", \"Continue\"} default button \"Continue\" with icon note")
+    
+    if [[ $? -eq 0 ]] && [[ "$result" == *"Continue"* ]]; then
+        return 0
+    else
+        return 1
+    fi
+}
+
+# Information dialog for step instructions
+show_step_info_dialog() {
+    local step_number="$1"
+    local step_title="$2"
+    local message="$3"
+    local dialog_title="Step $step_number: $step_title"
+    
+    osascript -e "display dialog \"$message\" with title \"$dialog_title\" buttons {\"OK\"} default button \"OK\" with icon note"
+}
+
 # Graceful exit handling with cleanup
 cleanup_and_exit() {
     local exit_code=$1
+    local exit_reason=${2:-""}
     
     echo ""
     echo_status "Cleaning up temporary files..."
@@ -184,14 +229,16 @@ cleanup_and_exit() {
     # Add cleanup logic here as needed
     
     if [[ $exit_code -eq 0 ]]; then
-        echo_success "Setup completed successfully!"
+        if [[ "$exit_reason" == "cancelled" ]]; then
+            echo_status "Setup cancelled by user"
+            # Exit immediately for cancellation, no need to wait for keypress
+            exit $exit_code
+        else
+            echo_success "Setup completed successfully!"
+        fi
     else
         echo_error "Setup exited with errors. Check log file: $LOG_FILE"
     fi
-    
-    echo ""
-    echo_status "Press any key to exit..."
-    read -n 1 -s
     
     exit $exit_code
 }
@@ -203,28 +250,20 @@ trap 'cleanup_and_exit 1' INT TERM
 show_welcome_screen() {
     echo_header
     
-    echo -e "${YELLOW}Welcome to the ProPresenter OneDrive Setup Assistant!${NC}"
-    echo ""
-    echo "This script will help you:"
-    echo "• Install and configure ProPresenter"
-    echo "• Set up OneDrive synchronization with SharePoint"
-    echo "• Create standardized folder structure"
-    echo "• Configure ProPresenter to use synced folders"
-    echo ""
-    echo -e "${YELLOW}Requirements:${NC}"
-    echo "• macOS 13.0 or later"
-    echo "• Administrator privileges"
-    echo "• Microsoft 365 account with Mosaik Berlin access"
-    echo "• Active internet connection"
-    echo ""
-    echo -e "${CYAN}Tenant Information:${NC}"
-    echo "• Organization: Mosaikkirche Berlin e.V."
-    echo "• Domain: ${TENANT_DOMAIN}"
-    echo ""
+    # Show welcome dialog with the main steps
+    local welcome_message="Welcome! This tool will help you set up ProPresenter, OneDrive, and the sync configuration in order to prepare or operate slides for Mosaik Berlin events.
+
+SETUP PROCESS OVERVIEW:
+1. Verify or install ProPresenter
+2. Verify or setup OneDrive
+3. Synchronize ProPresenter libraries
+4. Adjust ProPresenter settings
+
+Are you ready to start the setup process?"
     
-    if ! show_confirmation_dialog "$SCRIPT_NAME" "Do you want to proceed with the ProPresenter setup?"; then
+    if ! show_confirmation_dialog "$SCRIPT_NAME" "$welcome_message"; then
         echo_warning "Setup cancelled by user"
-        cleanup_and_exit 0
+        cleanup_and_exit 0 "cancelled"
     fi
     
     echo_success "Setup confirmed by user"
@@ -243,6 +282,10 @@ main() {
         cleanup_and_exit 1
     fi
     
+    # Check for updates before starting main process
+    # Note: Update checking will work once repository is public and has releases
+    initialize_update_check "$@"
+    
     # Show welcome screen and get user confirmation
     show_welcome_screen
     
@@ -252,14 +295,70 @@ main() {
     echo_status "Log file: ${LOG_FILE}"
     echo_status "Working directory: ${SCRIPT_DIR}"
     
-    # Placeholder for future implementation steps
+    # Step 4: ProPresenter Version Management
     echo ""
-    echo_status "Core infrastructure initialized successfully!"
-    echo_warning "Additional setup steps will be implemented in future versions."
+    echo_step "Managing ProPresenter version..."
+    if ! manage_propresenter_version "$PROPRESENTER_VERSION"; then
+        echo_error "ProPresenter version management failed"
+        cleanup_and_exit 1
+    fi
+    
+    # Step 5: OneDrive Detection and Authentication
+    echo ""
+    echo_step "Managing OneDrive authentication..."
+    if ! manage_onedrive_authentication "$TENANT_ID" "$TENANT_DOMAIN"; then
+        echo_error "OneDrive authentication failed"
+        cleanup_and_exit 1
+    fi
+    
+    # Step 6: SharePoint Library Discovery and Sync
+    echo ""
+    echo_step "Managing SharePoint library discovery and sync..."
+    if ! manage_sharepoint_sync; then
+        echo_error "SharePoint library discovery and sync failed"
+        cleanup_and_exit 1
+    fi
+    
+    # Step 7: Symlink Creation and Path Normalization
+    echo ""
+    echo_step "Creating standardized folder structure..."
+    if ! manage_symlink_creation; then
+        echo_error "Symlink creation and path normalization failed"
+        cleanup_and_exit 1
+    fi
+    
+    # Step 8: ProPresenter Configuration Update
+    echo ""
+    echo_step "Updating ProPresenter configuration..."
+    if ! manage_propresenter_configuration; then
+        echo_error "ProPresenter configuration update failed"
+        cleanup_and_exit 1
+    fi
     
     # Success completion
     cleanup_and_exit 0
 }
+
+# Source self-update module
+source "${SCRIPT_DIR}/lib/self-update.sh"
+
+# Source ProPresenter version management module
+source "${SCRIPT_DIR}/lib/propresenter-version.sh"
+
+# Source OneDrive modules
+source "${SCRIPT_DIR}/lib/onedrive-installation.sh"
+source "${SCRIPT_DIR}/lib/onedrive-detection.sh"
+source "${SCRIPT_DIR}/lib/onedrive-setup.sh"
+source "${SCRIPT_DIR}/lib/onedrive-auth.sh"
+
+# Source SharePoint module (simplified browser-based approach)
+source "${SCRIPT_DIR}/lib/sharepoint-sync.sh"
+
+# Source Symlink Creation module
+source "${SCRIPT_DIR}/lib/symlink-creation.sh"
+
+# Source ProPresenter Configuration module
+source "${SCRIPT_DIR}/lib/propresenter-config.sh"
 
 # Script entry point
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
