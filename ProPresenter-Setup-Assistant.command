@@ -319,9 +319,17 @@ main() {
         cleanup_and_exit 1
     fi
     
+    # Step 7: Symlink Creation and Path Normalization
+    echo ""
+    echo_step "Creating standardized folder structure..."
+    if ! manage_symlink_creation; then
+        echo_error "Symlink creation and path normalization failed"
+        cleanup_and_exit 1
+    fi
+    
     # Placeholder for future implementation steps
     echo ""
-    echo_status "SharePoint library discovery and sync completed successfully!"
+    echo_status "Symlink creation and path normalization completed successfully!"
     echo_warning "Additional setup steps will be implemented in future versions."
     
     # Success completion
@@ -342,6 +350,9 @@ source "${SCRIPT_DIR}/lib/onedrive-auth.sh"
 
 # Source SharePoint module (simplified browser-based approach)
 source "${SCRIPT_DIR}/lib/sharepoint-sync.sh"
+
+# Source Symlink Creation module
+source "${SCRIPT_DIR}/lib/symlink-creation.sh"
 
 # Script entry point
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
