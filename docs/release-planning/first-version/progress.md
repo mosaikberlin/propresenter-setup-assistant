@@ -433,3 +433,180 @@ This document tracks the completion status of implementation steps for the first
 - Clear documentation for troubleshooting and support
 
 **ProPresenter Version Management Ready:** The implementation provides a complete, production-ready version management system that ensures all users have the exact same ProPresenter version (7.12) regardless of their starting point. The system safely handles upgrades, downgrades, and fresh installations while maintaining complete backup capabilities for both application and configuration data.
+
+## ✅ Step 5: Develop OneDrive Detection and Authentication Module (Completed: 2025-06-28)
+
+**Successfully implemented comprehensive OneDrive authentication system with robust tenant detection and modular architecture:**
+
+### Files Created/Modified
+
+- `lib/onedrive-installation.sh` - OneDrive installation detection and setup module (129 lines)
+- `lib/onedrive-detection.sh` - Tenant authentication detection and verification module (319 lines)
+- `lib/onedrive-setup.sh` - User guidance, dialogs, and authentication setup module (334 lines)
+- `lib/onedrive-auth.sh` - Main orchestrator for OneDrive authentication management (67 lines)
+- `ProPresenter-Setup-Assistant.command` - Integrated OneDrive modules into main script workflow
+
+### Key Features Implemented
+
+**Robust Tenant Detection System:**
+
+- **Flexible Pattern Matching**: Searches for folders containing "OneDrive", "Mosaik", and "Berlin" (case-insensitive) instead of hardcoded paths
+- **Active Sync Verification**: Validates that OneDrive is actually syncing by checking for sync indicator files (`.849C9593-D756-4E56-8D6E-42412F2A707B`, `desktop.ini`)
+- **Multi-Location Search**: Scans both `$HOME` and `$HOME/Library/CloudStorage` for OneDrive folders
+- **Process Validation**: Confirms OneDrive application is running and actively syncing
+- **Recent Activity Checks**: Detects recent file modifications to verify active sync status
+
+**State-Based Authentication Management:**
+
+- **Smart State Detection**: `get_onedrive_auth_state()` function determines current OneDrive status
+- **Conditional Flow Control**: Routes to appropriate handlers based on detected state:
+  - `authenticated_correct_tenant` → Shows confirmation dialog
+  - `running_with_other_accounts` → Guides multiple account setup
+  - `running_no_accounts` → Guides account setup
+  - `not_running` → Launches fresh OneDrive setup
+- **Context-Aware Dialogs**: Displays appropriate user guidance based on current configuration
+
+**Modular Architecture Design:**
+
+- **Installation Module**: Handles OneDrive app detection, download, and installation
+- **Detection Module**: All read-only operations, state verification, and tenant checking
+- **Setup Module**: All user interactions, dialogs, state changes, and application launches
+- **Auth Module**: Main orchestrator coordinating between modules
+
+**Enhanced User Experience:**
+
+- **Correct Status Recognition**: Properly identifies when OneDrive is already configured with Mosaik Berlin tenant
+- **Intelligent Guidance**: Provides appropriate setup instructions based on current state
+- **Clear Confirmation**: Shows success dialog when OneDrive is already properly configured
+- **Error Recovery**: Comprehensive retry mechanisms with authentication state reset
+
+**Advanced Sync Status Verification:**
+
+- **Multiple Verification Methods**: Checks sync indicators, recent file activity, Office file presence, and OneDrive command-line status
+- **Timeout Handling**: 5-minute authentication verification with progress indication
+- **Configuration Directory Detection**: Monitors OneDrive settings and configuration directories
+- **Log File Analysis**: Searches OneDrive logs for tenant ID and domain information
+
+### Verification Results
+
+**Tenant Detection Testing:**
+
+- ✅ Successfully detects existing Mosaik Berlin OneDrive folder: `/Users/.../Library/CloudStorage/OneDrive-MosaikkircheBerline.V`
+- ✅ Flexible pattern matching works with various OneDrive folder naming conventions
+- ✅ Sync indicator validation confirms active sync status
+- ✅ Properly distinguishes between active and inactive OneDrive folders
+- ✅ Process verification ensures OneDrive application is running
+
+**State-Based Flow Testing:**
+
+- ✅ Correctly identifies `authenticated_correct_tenant` state for existing setup
+- ✅ Shows appropriate confirmation dialog instead of incorrect "add account" dialog
+- ✅ State detection accurately determines authentication status
+- ✅ Conditional routing directs to proper handler functions
+- ✅ User experience flows smoothly through state-based logic
+
+**Modular Architecture Testing:**
+
+- ✅ Clean separation between detection, setup, installation, and orchestration modules
+- ✅ Module dependencies properly structured (detection never calls setup)
+- ✅ Clear logging prefixes show module interaction flow
+- ✅ Function isolation enables independent testing and maintenance
+- ✅ Orchestrator properly coordinates between specialized modules
+
+**Integration Testing:**
+
+- ✅ Main script integration with all four OneDrive modules
+- ✅ Environment configuration loading (target tenant and domain)
+- ✅ Module loading sequence and function availability
+- ✅ Error propagation and cleanup procedures across modules
+- ✅ Comprehensive logging with module-specific prefixes
+
+### Technical Implementation Details
+
+**Robust Detection Algorithm:**
+
+- Uses `find` with regex patterns to locate OneDrive folders containing required keywords
+- Implements multiple fallback verification methods for sync status confirmation
+- Includes timeout and retry logic for reliable OneDrive process detection
+- Searches OneDrive logs and configuration directories for tenant validation
+
+**State-Based Architecture:**
+
+- Central `get_onedrive_auth_state()` function determines current system state
+- State-specific handler functions provide targeted user guidance and actions
+- Clear separation between state detection (read-only) and state modification (setup)
+- Comprehensive error handling and recovery for each authentication state
+
+**Modular File Organization:**
+
+```
+lib/
+├── onedrive-installation.sh  # Installation detection and setup
+├── onedrive-detection.sh     # State verification and validation
+├── onedrive-setup.sh         # User interactions and state changes
+└── onedrive-auth.sh          # Main orchestration and workflow
+```
+
+**Advanced Logging System:**
+
+- Module-specific logging prefixes enable clear troubleshooting:
+  - `[OneDrive Install]` → Installation operations
+  - `[OneDrive Detection]` → State verification and tenant checking
+  - `[OneDrive Setup]` → User interactions and authentication setup
+  - `[OneDrive Auth]` → Main workflow orchestration
+
+### Production Readiness Features
+
+**Reliability and Robustness:**
+
+- Multiple verification methods prevent false positives from inactive folders
+- Comprehensive error handling and recovery mechanisms
+- Timeout protection for all network and process-dependent operations
+- Detailed logging for troubleshooting and support
+
+**Maintainability and Extensibility:**
+
+- Clean modular architecture with single responsibility principle
+- Well-documented module interfaces and dependencies
+- Easy to extend with additional OneDrive configurations or tenants
+- Clear separation enables independent module testing and updates
+
+**User Experience Excellence:**
+
+- Context-aware dialogs provide appropriate guidance for each scenario
+- Minimal user intervention required for already-configured systems
+- Professional error messages with actionable guidance
+- Seamless integration with existing script workflow
+
+**Performance and Efficiency:**
+
+- Efficient folder scanning with targeted search patterns
+- Minimal resource usage through optimized detection algorithms
+- Quick state determination without unnecessary operations
+- Proper cleanup and resource management
+
+### Architecture Benefits
+
+**Single Responsibility Principle:**
+
+- Each module has one clear, focused purpose
+- Detection module only reads and verifies state
+- Setup module only handles user interactions and state changes
+- Installation module only manages OneDrive app installation
+- Auth module only orchestrates workflow between modules
+
+**Dependency Management:**
+
+- Clear module dependency hierarchy prevents circular dependencies
+- Detection module is dependency-free for easy testing
+- Setup module uses detection results but doesn't modify detection logic
+- Auth module coordinates but doesn't duplicate functionality
+
+**Testing and Debugging:**
+
+- Individual modules can be tested in isolation
+- Clear logging shows exactly which module handles each operation
+- State-based flow makes debugging authentication issues straightforward
+- Module boundaries make it easy to identify and fix specific issues
+
+**OneDrive Authentication Module Ready:** The implementation provides a complete, production-ready OneDrive authentication system with robust tenant detection, intelligent state management, and clean modular architecture. The system correctly identifies existing Mosaik Berlin configurations, provides appropriate user guidance for various scenarios, and maintains reliable sync verification to ensure OneDrive is actively working with the correct tenant.

@@ -247,27 +247,14 @@ trap 'cleanup_and_exit 1' INT TERM
 show_welcome_screen() {
     echo_header
     
-    # Show welcome dialog with the four main steps
+    # Show welcome dialog with the main steps
     local welcome_message="Welcome! This tool will help you set up ProPresenter, OneDrive, and the sync configuration in order to prepare or operate slides for Mosaik Berlin events.
 
 SETUP PROCESS OVERVIEW:
-The assistant will guide you through these four main steps:
-
-1. Validating ProPresenter installation
-   • Check if ProPresenter version 7.12 is installed
-   • Install or update ProPresenter if needed
-
-2. Validating OneDrive installation and authorization
-   • Ensure OneDrive is installed and running
-   • Set up authentication with Mosaik Berlin account
-
-3. Synchronizing relevant ProPresenter libraries
-   • Connect to Mosaik Berlin SharePoint folders
-   • Set up local sync folders for ProPresenter assets
-
-4. Adjusting ProPresenter settings
-   • Configure ProPresenter to use synced folders
-   • Set up proper file paths and preferences
+1. Verify or install ProPresenter
+2. Verify or setup OneDrive
+3. Synchronize ProPresenter libraries
+4. Adjust ProPresenter settings
 
 Are you ready to start the setup process?"
     
@@ -336,7 +323,10 @@ source "${SCRIPT_DIR}/lib/self-update.sh"
 # Source ProPresenter version management module
 source "${SCRIPT_DIR}/lib/propresenter-version.sh"
 
-# Source OneDrive authentication module
+# Source OneDrive modules
+source "${SCRIPT_DIR}/lib/onedrive-installation.sh"
+source "${SCRIPT_DIR}/lib/onedrive-detection.sh"
+source "${SCRIPT_DIR}/lib/onedrive-setup.sh"
 source "${SCRIPT_DIR}/lib/onedrive-auth.sh"
 
 # Script entry point

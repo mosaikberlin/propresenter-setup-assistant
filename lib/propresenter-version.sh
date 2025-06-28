@@ -535,10 +535,7 @@ manage_propresenter_version() {
     local install_message="ProPresenter Setup Assistant will now install ProPresenter version ${target_version}.
 
 IMPORTANT NOTES:
-• You may be asked for your computer password during installation
-• This is normal and required for system-wide installation
-• ProPresenter will be installed via Homebrew package manager
-• Any existing ProPresenter configuration will be backed up
+You may be asked for your computer password during installation. This is normal and required for system-wide installation. Any existing ProPresenter configuration will be backed up.
 
 Click Continue to proceed with ProPresenter installation."
     
