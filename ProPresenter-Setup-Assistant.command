@@ -182,9 +182,37 @@ show_confirmation_dialog() {
     fi
 }
 
+# Step-specific dialog with step numbering
+show_step_dialog() {
+    local step_number="$1"
+    local step_title="$2"
+    local message="$3"
+    local dialog_title="Step $step_number: $step_title"
+    
+    local result
+    result=$(osascript -e "display dialog \"$message\" with title \"$dialog_title\" buttons {\"Cancel\", \"Continue\"} default button \"Continue\" with icon note")
+    
+    if [[ $? -eq 0 ]] && [[ "$result" == *"Continue"* ]]; then
+        return 0
+    else
+        return 1
+    fi
+}
+
+# Information dialog for step instructions
+show_step_info_dialog() {
+    local step_number="$1"
+    local step_title="$2"
+    local message="$3"
+    local dialog_title="Step $step_number: $step_title"
+    
+    osascript -e "display dialog \"$message\" with title \"$dialog_title\" buttons {\"OK\"} default button \"OK\" with icon note"
+}
+
 # Graceful exit handling with cleanup
 cleanup_and_exit() {
     local exit_code=$1
+    local exit_reason=${2:-""}
     
     echo ""
     echo_status "Cleaning up temporary files..."
@@ -192,14 +220,22 @@ cleanup_and_exit() {
     # Add cleanup logic here as needed
     
     if [[ $exit_code -eq 0 ]]; then
-        echo_success "Setup completed successfully!"
+        if [[ "$exit_reason" == "cancelled" ]]; then
+            echo_status "Setup cancelled by user"
+            # Exit immediately for cancellation, no need to wait for keypress
+            exit $exit_code
+        else
+            echo_success "Setup completed successfully!"
+            echo ""
+            echo_status "Press any key to exit..."
+            read -n 1 -s
+        fi
     else
         echo_error "Setup exited with errors. Check log file: $LOG_FILE"
+        echo ""
+        echo_status "Press any key to exit..."
+        read -n 1 -s
     fi
-    
-    echo ""
-    echo_status "Press any key to exit..."
-    read -n 1 -s
     
     exit $exit_code
 }
@@ -211,28 +247,33 @@ trap 'cleanup_and_exit 1' INT TERM
 show_welcome_screen() {
     echo_header
     
-    echo -e "${YELLOW}Welcome to the ProPresenter OneDrive Setup Assistant!${NC}"
-    echo ""
-    echo "This script will help you:"
-    echo "• Install and configure ProPresenter"
-    echo "• Set up OneDrive synchronization with SharePoint"
-    echo "• Create standardized folder structure"
-    echo "• Configure ProPresenter to use synced folders"
-    echo ""
-    echo -e "${YELLOW}Requirements:${NC}"
-    echo "• macOS 13.0 or later"
-    echo "• Administrator privileges"
-    echo "• Microsoft 365 account with Mosaik Berlin access"
-    echo "• Active internet connection"
-    echo ""
-    echo -e "${CYAN}Tenant Information:${NC}"
-    echo "• Organization: Mosaikkirche Berlin e.V."
-    echo "• Domain: ${TENANT_DOMAIN}"
-    echo ""
+    # Show welcome dialog with the four main steps
+    local welcome_message="Welcome! This tool will help you set up ProPresenter, OneDrive, and the sync configuration in order to prepare or operate slides for Mosaik Berlin events.
+
+SETUP PROCESS OVERVIEW:
+The assistant will guide you through these four main steps:
+
+1. Validating ProPresenter installation
+   • Check if ProPresenter version 7.12 is installed
+   • Install or update ProPresenter if needed
+
+2. Validating OneDrive installation and authorization
+   • Ensure OneDrive is installed and running
+   • Set up authentication with Mosaik Berlin account
+
+3. Synchronizing relevant ProPresenter libraries
+   • Connect to Mosaik Berlin SharePoint folders
+   • Set up local sync folders for ProPresenter assets
+
+4. Adjusting ProPresenter settings
+   • Configure ProPresenter to use synced folders
+   • Set up proper file paths and preferences
+
+Are you ready to start the setup process?"
     
-    if ! show_confirmation_dialog "$SCRIPT_NAME" "Do you want to proceed with the ProPresenter setup?"; then
+    if ! show_confirmation_dialog "$SCRIPT_NAME" "$welcome_message"; then
         echo_warning "Setup cancelled by user"
-        cleanup_and_exit 0
+        cleanup_and_exit 0 "cancelled"
     fi
     
     echo_success "Setup confirmed by user"
@@ -272,9 +313,17 @@ main() {
         cleanup_and_exit 1
     fi
     
+    # Step 5: OneDrive Detection and Authentication
+    echo ""
+    echo_step "Managing OneDrive authentication..."
+    if ! manage_onedrive_authentication "$TENANT_ID" "$TENANT_DOMAIN"; then
+        echo_error "OneDrive authentication failed"
+        cleanup_and_exit 1
+    fi
+    
     # Placeholder for future implementation steps
     echo ""
-    echo_status "ProPresenter version management completed successfully!"
+    echo_status "OneDrive authentication completed successfully!"
     echo_warning "Additional setup steps will be implemented in future versions."
     
     # Success completion
@@ -286,6 +335,9 @@ source "${SCRIPT_DIR}/lib/self-update.sh"
 
 # Source ProPresenter version management module
 source "${SCRIPT_DIR}/lib/propresenter-version.sh"
+
+# Source OneDrive authentication module
+source "${SCRIPT_DIR}/lib/onedrive-auth.sh"
 
 # Script entry point
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then

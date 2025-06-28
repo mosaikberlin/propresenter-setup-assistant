@@ -531,6 +531,23 @@ manage_propresenter_version() {
         return 1
     fi
     
+    # Show user dialog about ProPresenter installation
+    local install_message="ProPresenter Setup Assistant will now install ProPresenter version ${target_version}.
+
+IMPORTANT NOTES:
+• You may be asked for your computer password during installation
+• This is normal and required for system-wide installation
+• ProPresenter will be installed via Homebrew package manager
+• Any existing ProPresenter configuration will be backed up
+
+Click Continue to proceed with ProPresenter installation."
+    
+    if ! show_step_dialog "1" "Validating ProPresenter Installation" "$install_message"; then
+        echo_warning "ProPresenter installation cancelled by user"
+        echo "$log_prefix ProPresenter installation cancelled by user" >> "$LOG_FILE"
+        cleanup_and_exit 0 "cancelled"
+    fi
+    
     echo_header "ProPresenter Version Management"
     echo "$log_prefix Starting ProPresenter version management for target version: $target_version" >> "$LOG_FILE"
     
