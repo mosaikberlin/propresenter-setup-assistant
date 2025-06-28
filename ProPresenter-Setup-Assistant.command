@@ -102,17 +102,25 @@ echo_status() {
     echo -e "${CYAN}ℹ${NC} $1"
 }
 
+echo_info() {
+    echo "$1"
+}
+
+echo_important() {
+    echo -e "${GREEN}ATTENTION:${NC} $1"
+}
+
 echo_success() {
-    echo -e "${GREEN}✅${NC} $1"
+    echo -e "✅${NC} $1"
 }
 
 echo_error() {
-    echo -e "${RED}❌${NC} $1"
+    echo -e "❌${NC} $1"
     echo "$(date): ERROR: $1" >> "${LOG_FILE}"
 }
 
 echo_warning() {
-    echo -e "${YELLOW}⚠️${NC} $1"
+    echo -e "⚠️${NC} $1"
     echo "$(date): WARNING: $1" >> "${LOG_FILE}"
 }
 
@@ -256,9 +264,17 @@ main() {
     echo_status "Log file: ${LOG_FILE}"
     echo_status "Working directory: ${SCRIPT_DIR}"
     
+    # Step 4: ProPresenter Version Management
+    echo ""
+    echo_step "Managing ProPresenter version..."
+    if ! manage_propresenter_version "$PROPRESENTER_VERSION"; then
+        echo_error "ProPresenter version management failed"
+        cleanup_and_exit 1
+    fi
+    
     # Placeholder for future implementation steps
     echo ""
-    echo_status "Core infrastructure initialized successfully!"
+    echo_status "ProPresenter version management completed successfully!"
     echo_warning "Additional setup steps will be implemented in future versions."
     
     # Success completion
@@ -267,6 +283,9 @@ main() {
 
 # Source self-update module
 source "${SCRIPT_DIR}/lib/self-update.sh"
+
+# Source ProPresenter version management module
+source "${SCRIPT_DIR}/lib/propresenter-version.sh"
 
 # Script entry point
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
