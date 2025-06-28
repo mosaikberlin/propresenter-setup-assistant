@@ -22,7 +22,7 @@ CYAN='\033[0;36m'
 NC='\033[0m' # No Color
 LOG_DIR="${SCRIPT_DIR}/logs"
 LOG_FILE="${LOG_DIR}/setup-assistant.log"
-TOTAL_STEPS=11
+TOTAL_STEPS=10
 CURRENT_STEP=0
 
 # Environment configuration variables (will be loaded from environment.md)
@@ -311,29 +311,22 @@ main() {
         cleanup_and_exit 1
     fi
     
-    # Step 6: SharePoint Library Discovery and Sync
+    # Step 6: SharePoint Library Shortcut Setup
     echo ""
-    echo_step "Managing SharePoint library discovery and sync..."
+    echo_step "Setting up SharePoint library OneDrive shortcut..."
     if ! manage_sharepoint_sync; then
-        echo_error "SharePoint library discovery and sync failed"
+        echo_error "SharePoint library shortcut setup failed"
         cleanup_and_exit 1
     fi
     
-    # Step 7: Symlink Creation and Path Normalization
+    # Step 7: ProPresenter Configuration (Direct Path)
     echo ""
-    echo_step "Creating standardized folder structure..."
-    if ! manage_symlink_creation; then
-        echo_error "Symlink creation and path normalization failed"
-        cleanup_and_exit 1
-    fi
-    
-    # Step 8: ProPresenter Configuration Update
-    echo ""
-    echo_step "Updating ProPresenter configuration..."
+    echo_step "Configuring ProPresenter to use OneDrive shortcut..."
     if ! manage_propresenter_configuration; then
-        echo_error "ProPresenter configuration update failed"
+        echo_error "ProPresenter configuration failed"
         cleanup_and_exit 1
     fi
+    
     
     # Success completion
     cleanup_and_exit 0
@@ -354,8 +347,6 @@ source "${SCRIPT_DIR}/lib/onedrive-auth.sh"
 # Source SharePoint module (simplified browser-based approach)
 source "${SCRIPT_DIR}/lib/sharepoint-sync.sh"
 
-# Source Symlink Creation module
-source "${SCRIPT_DIR}/lib/symlink-creation.sh"
 
 # Source ProPresenter Configuration module
 source "${SCRIPT_DIR}/lib/propresenter-config.sh"

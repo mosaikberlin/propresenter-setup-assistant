@@ -12,8 +12,8 @@ PROPRESENTER_APP_NAME="ProPresenter"
 PROPRESENTER_BUNDLE_ID="com.renewedvision.ProPresenter"
 PROPRESENTER_PLIST_PATH="$HOME/Library/Preferences/${PROPRESENTER_BUNDLE_ID}.plist"
 
-# Target configuration values
-SYMLINK_APPLICATION_DIRECTORY="$HOME/ProPresenter-Sync/Application-Directory"
+# Target configuration values (will be set from SharePoint sync module)
+SHAREPOINT_SYNC_FOLDER=""
 
 # =============================================================================
 # ProPresenter Process Management
@@ -317,14 +317,24 @@ manage_propresenter_configuration() {
     echo_header "ProPresenter Configuration Update"
     echo "$(date): $CONFIG_LOG_PREFIX Starting ProPresenter configuration update" >> "$LOG_FILE"
     
-    # Verify symlink target exists
-    if [[ ! -d "$SYMLINK_APPLICATION_DIRECTORY" ]]; then
-        echo_error "Symlink Application Directory not found: $SYMLINK_APPLICATION_DIRECTORY"
-        echo_error "Please run the symlink creation step first"
+    # Get the OneDrive shortcut folder from SharePoint sync module
+    if [[ -z "$SHAREPOINT_SYNC_FOLDER" ]]; then
+        echo_error "OneDrive shortcut folder not available"
+        echo_error "Please ensure SharePoint shortcut setup completed successfully"
         return 1
     fi
     
-    echo_info "Target Application Directory: $SYMLINK_APPLICATION_DIRECTORY"
+    # Construct the Application Directory path
+    local application_directory="$SHAREPOINT_SYNC_FOLDER/Application Directory"
+    
+    # Verify the Application Directory exists in the OneDrive shortcut
+    if [[ ! -d "$application_directory" ]]; then
+        echo_error "Application Directory not found in OneDrive shortcut: $application_directory"
+        echo_error "Please verify the SharePoint library contains the Application Directory folder"
+        return 1
+    fi
+    
+    echo_info "Target Application Directory: $application_directory"
     echo ""
     
     # Step 1: Safely terminate ProPresenter
@@ -347,7 +357,7 @@ manage_propresenter_configuration() {
     
     # Step 3: Update application directory setting
     echo_step "Updating ProPresenter configuration"
-    if ! update_application_directory_setting "$SYMLINK_APPLICATION_DIRECTORY"; then
+    if ! update_application_directory_setting "$application_directory"; then
         echo_error "Failed to update ProPresenter configuration"
         echo_info "Attempting to rollback configuration..."
         rollback_configuration
@@ -358,7 +368,7 @@ manage_propresenter_configuration() {
     
     # Step 4: Verify configuration changes
     echo_step "Verifying configuration changes"
-    if ! verify_configuration_changes "$SYMLINK_APPLICATION_DIRECTORY"; then
+    if ! verify_configuration_changes "$application_directory"; then
         echo_error "Configuration verification failed"
         echo_info "Attempting to rollback configuration..."
         rollback_configuration
@@ -383,9 +393,9 @@ manage_propresenter_configuration() {
     
     echo ""
     echo_success "ProPresenter configuration update completed successfully"
-    echo_info "Application Directory: $SYMLINK_APPLICATION_DIRECTORY"
-    echo_success "ProPresenter is now configured to use standardized symlink paths"
-    echo_info "All team machines will now have identical ProPresenter configurations"
+    echo_info "Application Directory: $application_directory"
+    echo_success "ProPresenter is now configured to use OneDrive shortcut paths"
+    echo_info "All team machines will now have consistent ProPresenter configurations"
     echo "$(date): $CONFIG_LOG_PREFIX ProPresenter configuration update completed successfully" >> "$LOG_FILE"
     
     return 0

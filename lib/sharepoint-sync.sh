@@ -29,74 +29,124 @@ open_sharepoint_site() {
     fi
 }
 
-# Function to show sync instructions dialog
-show_sync_instructions() {
-    local dialog_message="SharePoint Library Sync Instructions
+# Function to show shortcut creation instructions dialog
+show_shortcut_instructions() {
+    local dialog_message="SharePoint Library Setup - Shortcut Method
 
 The SharePoint site has been opened in your browser. You may need to sign in first with your Mosaik Berlin M365 credentials.
 
-Please sync the ProPresenter library by:
+To access the ProPresenter content library:
 
-1. Click the 'Sync' button in the toolbar (next to 'Share')
-2. OneDrive may ask for permission - click 'Allow'
-3. The folder will start syncing to your computer
-4. Click 'Continue' below when the sync has started"
+1. Click 'Add shortcut to OneDrive' (NOT 'Sync') in the toolbar (next to Download)
+2. The folder will appear in your personal OneDrive
+3. It will sync automatically and be immediately available
+4. Click 'Continue' below when you've created the shortcut
 
-    if show_confirmation_dialog "SharePoint Sync Setup" "$dialog_message"; then
+This method ensures consistent paths across all team machines and eliminates sync complexity."
+
+    if show_confirmation_dialog "SharePoint Shortcut Setup" "$dialog_message"; then
         return 0
     else
         return 1
     fi
 }
 
-# Function to wait for sync completion with spinner
-wait_for_sync_folder() {
+# Function to detect OneDrive shortcut folder
+detect_onedrive_shortcut_folder() {
+    local current_user=$(whoami)
+    
+    # Log to file only to avoid interfering with return value
+    echo "$(date): $SHAREPOINT_LOG_PREFIX Searching for OneDrive shortcut folder" >> "$LOG_FILE"
+    
+    # Find OneDrive folders in CloudStorage (the definitive location)
+    local onedrive_folders=()
+    local cloudstorage_dir="$HOME/Library/CloudStorage"
+    
+    if [[ ! -d "$cloudstorage_dir" ]]; then
+        echo "$(date): $SHAREPOINT_LOG_PREFIX CloudStorage directory not found" >> "$LOG_FILE"
+        return 1
+    fi
+    
+    # Look for OneDrive folders in CloudStorage
+    for onedrive_path in "$cloudstorage_dir"/OneDrive*; do
+        if [[ -d "$onedrive_path" ]]; then
+            onedrive_folders+=("$onedrive_path")
+        fi
+    done
+    
+    # Check if we found any OneDrive folders
+    if [[ ${#onedrive_folders[@]} -eq 0 ]]; then
+        echo "$(date): $SHAREPOINT_LOG_PREFIX No OneDrive folders found in CloudStorage" >> "$LOG_FILE"
+        return 1
+    fi
+    
+    # Log the OneDrive folders we found
+    echo "$(date): $SHAREPOINT_LOG_PREFIX Found ${#onedrive_folders[@]} OneDrive folder(s)" >> "$LOG_FILE"
+    for folder in "${onedrive_folders[@]}"; do
+        echo "$(date): $SHAREPOINT_LOG_PREFIX Checking OneDrive folder: $folder" >> "$LOG_FILE"
+    done
+    
+    # Search each OneDrive folder for folders containing our keywords
+    for onedrive_root in "${onedrive_folders[@]}"; do
+        # Log to file and stderr, not stdout (to avoid interfering with return value)
+        echo "$(date): $SHAREPOINT_LOG_PREFIX Searching in OneDrive folder: $(basename "$onedrive_root")" >> "$LOG_FILE"
+        
+        # Use find to search for folders containing Visuals, Team, and ProPresenter
+        while IFS= read -r -d '' folder_path; do
+            local folder_name=$(basename "$folder_path")
+            echo "$(date): $SHAREPOINT_LOG_PREFIX Checking folder: $folder_name" >> "$LOG_FILE"
+            
+            # Check if folder name contains all required keywords (case-insensitive)
+            if [[ "$folder_name" =~ [Vv]isuals ]] && [[ "$folder_name" =~ [Tt]eam ]] && [[ "$folder_name" =~ [Pp]ro[Pp]resenter ]]; then
+                echo "$(date): $SHAREPOINT_LOG_PREFIX Found shortcut folder: $folder_path" >> "$LOG_FILE"
+                echo "$folder_path"
+                return 0
+            fi
+            
+            # Also check for simpler patterns with at least 2 of the 3 keywords
+            local keyword_count=0
+            [[ "$folder_name" =~ [Vv]isuals ]] && ((keyword_count++))
+            [[ "$folder_name" =~ [Tt]eam ]] && ((keyword_count++))
+            [[ "$folder_name" =~ [Pp]ro[Pp]resenter ]] && ((keyword_count++))
+            
+            if [[ $keyword_count -ge 2 ]]; then
+                echo "$(date): $SHAREPOINT_LOG_PREFIX Found shortcut folder: $folder_path" >> "$LOG_FILE"
+                echo "$folder_path"
+                return 0
+            fi
+            
+        done < <(find "$onedrive_root" -maxdepth 2 -type d -print0 2>/dev/null)
+    done
+    
+    echo "$(date): $SHAREPOINT_LOG_PREFIX OneDrive shortcut folder not found" >> "$LOG_FILE"
+    return 1
+}
+
+# Function to wait for shortcut folder to appear with spinner
+wait_for_shortcut_folder() {
     local max_wait_time=60  # 1 minute
     local wait_count=0
     local spinner_chars="⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
     local spinner_index=0
     
-    echo_info "Waiting for SharePoint folder to appear locally..."
-    echo "$(date): $SHAREPOINT_LOG_PREFIX Waiting for SharePoint sync folder to appear" >> "$LOG_FILE"
+    echo_info "Waiting for OneDrive shortcut folder to appear..."
+    echo "$(date): $SHAREPOINT_LOG_PREFIX Waiting for OneDrive shortcut folder to appear" >> "$LOG_FILE"
     
     while [[ $wait_count -lt $max_wait_time ]]; do
-        local found_folder=""
+        local found_folder
+        found_folder=$(detect_onedrive_shortcut_folder 2>/dev/null)
         
-        # Search in OneDrive CloudStorage locations
-        for location in "$HOME/Library/CloudStorage"/*; do
-            if [[ -d "$location" ]]; then
-                # Look for OneDrive SharePoint libraries (German: "Freigegebene Bibliotheken" or English: "Shared Libraries")
-                if [[ "$location" == *"OneDrive"* && ( "$location" == *"Freigegebene"* || "$location" == *"Shared"* || "$location" == *"Libraries"* || "$location" == *"Bibliotheken"* ) ]]; then
-                    echo_info "Found OneDrive SharePoint location: $location"
-                    
-                    # Look for ProPresenter-related folders
-                    local propresenter_folders
-                    propresenter_folders=$(find "$location" -type d -name "*ProPresenter*" -o -name "*Visuals*Team*" 2>/dev/null | head -5)
-                    
-                    if [[ -n "$propresenter_folders" ]]; then
-                        while IFS= read -r folder_path; do
-                            if [[ -d "$folder_path" ]]; then
-                                found_folder="$folder_path"
-                                echo_info "Found ProPresenter folder: $folder_path"
-                                break 2
-                            fi
-                        done <<< "$propresenter_folders"
-                    fi
-                fi
-            fi
-        done
-        
-        if [[ -n "$found_folder" ]]; then
+        if [[ $? -eq 0 && -n "$found_folder" ]]; then
             echo ""  # Clear spinner line
-            echo_success "SharePoint ProPresenter folder found: $found_folder"
-            echo "$(date): $SHAREPOINT_LOG_PREFIX SharePoint folder found: $found_folder" >> "$LOG_FILE"
+            echo_success "OneDrive shortcut folder found: $found_folder"
+            echo "$(date): $SHAREPOINT_LOG_PREFIX OneDrive shortcut folder found: $found_folder" >> "$LOG_FILE"
             export SHAREPOINT_SYNC_FOLDER="$found_folder"
             return 0
         fi
         
         # Show spinner
         local spinner_char="${spinner_chars:$spinner_index:1}"
-        printf "\r${CYAN}%s${NC} Searching for SharePoint sync folder... (%ds)" "$spinner_char" "$wait_count"
+        printf "\r${CYAN}%s${NC} Searching for OneDrive shortcut folder... (%ds)" "$spinner_char" "$wait_count"
         
         # Update spinner
         spinner_index=$(( (spinner_index + 1) % ${#spinner_chars} ))
@@ -106,8 +156,8 @@ wait_for_sync_folder() {
     done
     
     echo ""  # Clear spinner line
-    echo_error "SharePoint sync folder not found within timeout period"
-    echo "$(date): $SHAREPOINT_LOG_PREFIX SharePoint sync folder not found within timeout" >> "$LOG_FILE"
+    echo_error "OneDrive shortcut folder not found within timeout period"
+    echo "$(date): $SHAREPOINT_LOG_PREFIX OneDrive shortcut folder not found within timeout" >> "$LOG_FILE"
     return 1
 }
 
@@ -192,37 +242,38 @@ manage_sharepoint_sync() {
     
     echo ""
     
-    # Step 2: Show sync instructions
-    echo_step "SharePoint sync setup"
-    if ! show_sync_instructions; then
-        echo_warning "User cancelled SharePoint sync setup"
-        echo "$(date): $SHAREPOINT_LOG_PREFIX User cancelled sync setup" >> "$LOG_FILE"
+    # Step 2: Show shortcut instructions
+    echo_step "SharePoint shortcut setup"
+    if ! show_shortcut_instructions; then
+        echo_warning "User cancelled SharePoint shortcut setup"
+        echo "$(date): $SHAREPOINT_LOG_PREFIX User cancelled shortcut setup" >> "$LOG_FILE"
         return 1
     fi
     
     echo ""
     
-    # Step 3: Wait for sync folder to appear
-    echo_step "Detecting SharePoint sync folder"
-    if ! wait_for_sync_folder; then
+    # Step 3: Wait for shortcut folder to appear
+    echo_step "Detecting OneDrive shortcut folder"
+    if ! wait_for_shortcut_folder; then
         echo ""
-        echo_error "SharePoint sync folder detection failed"
-        echo_error "The SharePoint library must be successfully synced for ProPresenter setup to continue."
+        echo_error "OneDrive shortcut folder detection failed"
+        echo_error "The SharePoint library shortcut must be created for ProPresenter setup to continue."
         echo ""
         echo_info "Please ensure:"
-        echo_info "1. You clicked the 'Sync' button in SharePoint"
+        echo_info "1. You clicked 'Add shortcut to OneDrive' (NOT 'Sync') in SharePoint"
         echo_info "2. OneDrive is running and authenticated"
         echo_info "3. You have access to the ProPresenter library"
+        echo_info "4. The shortcut appears in your personal OneDrive folder"
         echo ""
         echo_info "SharePoint URL: $sharepoint_url"
         echo ""
-        echo_error "Setup cannot continue without SharePoint sync. Please retry after fixing the sync issue."
-        echo "$(date): $SHAREPOINT_LOG_PREFIX SharePoint sync failed - setup cannot continue" >> "$LOG_FILE"
+        echo_error "Setup cannot continue without OneDrive shortcut. Please retry after creating the shortcut."
+        echo "$(date): $SHAREPOINT_LOG_PREFIX OneDrive shortcut creation failed - setup cannot continue" >> "$LOG_FILE"
         return 1
     fi
     
     echo ""
-    echo_success "SharePoint sync detected successfully!"
+    echo_success "OneDrive shortcut detected successfully!"
     
     # Step 4: Ensure files are physically present (ProPresenter compatibility requirement)
     echo ""
@@ -235,11 +286,11 @@ manage_sharepoint_sync() {
     fi
         
     echo ""
-    echo_success "SharePoint library setup completed successfully"
-    echo_info "SharePoint folder: $SHAREPOINT_SYNC_FOLDER"
+    echo_success "OneDrive shortcut setup completed successfully"
+    echo_info "OneDrive shortcut folder: $SHAREPOINT_SYNC_FOLDER"
     echo_success "Files are now physically present on device for ProPresenter compatibility"
-    echo_info "The SharePoint library will continue syncing in the background via OneDrive."
-    echo "$(date): $SHAREPOINT_LOG_PREFIX SharePoint library setup completed successfully" >> "$LOG_FILE"
+    echo_info "The OneDrive shortcut will continue syncing in the background automatically."
+    echo "$(date): $SHAREPOINT_LOG_PREFIX OneDrive shortcut setup completed successfully" >> "$LOG_FILE"
     
     return 0
 }
