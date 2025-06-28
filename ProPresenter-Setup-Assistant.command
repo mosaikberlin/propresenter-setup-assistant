@@ -157,6 +157,15 @@ load_environment_config() {
     GITHUB_API_URL=$(grep "GitHub API URL" "$env_file" | sed 's/.*`\([^`]*\)`.*/\1/')
     PROPRESENTER_VERSION=$(grep "Target ProPresenter Version" "$env_file" | sed 's/.*`\([^`]*\)`.*/\1/')
     
+    # Parse SharePoint configuration
+    SHAREPOINT_URL=$(grep "SharePoint URL" "$env_file" | sed 's/.*`\([^`]*\)`.*/\1/')
+    SHAREPOINT_SITE_PATH_CONFIG=$(grep "Site Path" "$env_file" | sed 's/.*`\([^`]*\)`.*/\1/')
+    SHAREPOINT_LIBRARY_PATH_CONFIG=$(grep "Library Path" "$env_file" | sed 's/.*`\([^`]*\)`.*/\1/')
+    
+    # Export variables for use by modules
+    export TENANT_ID TENANT_DOMAIN SHAREPOINT_BASE_URL GITHUB_REPO GITHUB_API_URL PROPRESENTER_VERSION
+    export SHAREPOINT_URL SHAREPOINT_SITE_PATH_CONFIG SHAREPOINT_LIBRARY_PATH_CONFIG
+    
     # Validate required configuration
     if [[ -z "$TENANT_ID" || -z "$TENANT_DOMAIN" || -z "$SHAREPOINT_BASE_URL" ]]; then
         echo_error "Missing required environment configuration"
@@ -226,15 +235,9 @@ cleanup_and_exit() {
             exit $exit_code
         else
             echo_success "Setup completed successfully!"
-            echo ""
-            echo_status "Press any key to exit..."
-            read -n 1 -s
         fi
     else
         echo_error "Setup exited with errors. Check log file: $LOG_FILE"
-        echo ""
-        echo_status "Press any key to exit..."
-        read -n 1 -s
     fi
     
     exit $exit_code
@@ -308,9 +311,17 @@ main() {
         cleanup_and_exit 1
     fi
     
+    # Step 6: SharePoint Library Discovery and Sync
+    echo ""
+    echo_step "Managing SharePoint library discovery and sync..."
+    if ! manage_sharepoint_sync; then
+        echo_error "SharePoint library discovery and sync failed"
+        cleanup_and_exit 1
+    fi
+    
     # Placeholder for future implementation steps
     echo ""
-    echo_status "OneDrive authentication completed successfully!"
+    echo_status "SharePoint library discovery and sync completed successfully!"
     echo_warning "Additional setup steps will be implemented in future versions."
     
     # Success completion
@@ -328,6 +339,9 @@ source "${SCRIPT_DIR}/lib/onedrive-installation.sh"
 source "${SCRIPT_DIR}/lib/onedrive-detection.sh"
 source "${SCRIPT_DIR}/lib/onedrive-setup.sh"
 source "${SCRIPT_DIR}/lib/onedrive-auth.sh"
+
+# Source SharePoint module (simplified browser-based approach)
+source "${SCRIPT_DIR}/lib/sharepoint-sync.sh"
 
 # Script entry point
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
