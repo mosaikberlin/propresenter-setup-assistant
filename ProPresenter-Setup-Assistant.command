@@ -327,10 +327,13 @@ main() {
         cleanup_and_exit 1
     fi
     
-    # Placeholder for future implementation steps
+    # Step 8: ProPresenter Configuration Update
     echo ""
-    echo_status "Symlink creation and path normalization completed successfully!"
-    echo_warning "Additional setup steps will be implemented in future versions."
+    echo_step "Updating ProPresenter configuration..."
+    if ! manage_propresenter_configuration; then
+        echo_error "ProPresenter configuration update failed"
+        cleanup_and_exit 1
+    fi
     
     # Success completion
     cleanup_and_exit 0
@@ -353,6 +356,9 @@ source "${SCRIPT_DIR}/lib/sharepoint-sync.sh"
 
 # Source Symlink Creation module
 source "${SCRIPT_DIR}/lib/symlink-creation.sh"
+
+# Source ProPresenter Configuration module
+source "${SCRIPT_DIR}/lib/propresenter-config.sh"
 
 # Script entry point
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then

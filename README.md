@@ -24,7 +24,9 @@ This script automatically configures your Mac for seamless ProPresenter usage wi
 
 ### 2. Run
 
-Double-click `ProPresenter-Setup-Assistant.command` and follow the prompts.
+Right-click `ProPresenter-Setup-Assistant.command` and select **"Open with Terminal"**.
+
+When the security dialog appears, click **"Open"** to confirm you want to run the script.
 
 ### 3. Done
 
@@ -81,7 +83,7 @@ All content stays synchronized with the team and works offline when needed.
 #### Authentication problems
 
 - Make sure you're using Mosaik Berlin's Microsoft 365 account
-- Contact IT support if you don't have access to the required Teams channels or SharePoint sites
+- Contact your team lead or Mosaik Berlin's IT team if you don't have access to the required Teams channels or SharePoint sites
 
 #### OneDrive sync issues
 
